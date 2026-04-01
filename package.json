@@ -1,0 +1,24 @@
+{
+  "name": "blockvote-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "install:all": "npm install; npm --prefix backend install; npm --prefix frontend install; npm --prefix contracts install",
+    "dev": "concurrently -n BACKEND,FRONTEND -c yellow,cyan \"npm --prefix backend run dev\" \"npm --prefix frontend run dev\"",
+    "dev:all": "node scripts/dev-all.cjs",
+    "clean:ports": "kill-port 5000 5173 5174",
+    "dev:ganache": "npm run clean:ports && node scripts/dev-ganache.cjs",
+    "backend": "npm --prefix backend run dev",
+    "frontend": "npm --prefix frontend run dev",
+    "new-cycle": "node scripts/new-cycle.cjs",
+    "contracts:compile": "npm --prefix contracts run compile",
+    "contracts:deploy:ganache": "npm --prefix contracts run deploy:ganache",
+    "contracts:deploy:local": "npm --prefix contracts run deploy:local",
+    "contracts:test:e2e:ganache": "npm --prefix contracts run test:e2e:ganache"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.1",
+    "ganache": "^7.9.2",
+    "kill-port": "^2.0.1"
+  }
+}
