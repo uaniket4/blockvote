@@ -9,8 +9,6 @@ services:
     envVars:
       - key: NODE_VERSION
         value: 20
-      - key: PORT
-        value: 5000
       - key: HOST
         value: 0.0.0.0
       - key: TRUST_PROXY
@@ -19,11 +17,25 @@ services:
         sync: false
       - key: DB_HOST
         sync: false
+      - key: DB_PORT
+        value: "4000"
       - key: DB_USER
         sync: false
       - key: DB_PASSWORD
         sync: false
       - key: DB_NAME
         sync: false
+      - key: DB_SSL
+        value: "true"
+      - key: DB_SSL_REJECT_UNAUTHORIZED
+        value: "false"
       - key: JWT_SECRET
         sync: false
+      - key: JWT_EXPIRES_IN
+        value: 1d
+      - key: COMPRE_FACE_BASE_URL
+        sync: false
+      - key: COMPRE_FACE_API_KEY
+        sync: false
+      - key: COMPRE_FACE_SIMILARITY_THRESHOLD
+        value: "0.8"

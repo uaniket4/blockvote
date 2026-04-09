@@ -232,15 +232,36 @@ router.post('/login', async (req, res) => {
       },
     });
   } catch (error) {
+    // Always log the real error so it appears in Render logs
+    console.error('[LOGIN ERROR]', error?.code, error?.message, error);
+
     if (error?.message?.includes('insecure transport are prohibited')) {
       return res.status(503).json({
-        message: 'Database SSL is required. Configure DB_SSL=true and DB_SSL_REJECT_UNAUTHORIZED=true on the backend.',
+        message: 'Database SSL is required. Configure DB_SSL=true on the backend.',
       });
     }
 
     if (error?.code === 'ENOTFOUND' || error?.code === 'ECONNREFUSED') {
       return res.status(503).json({
-        message: 'Database connection failed. Verify DB host, port, and network allowlist.',
+        message: `Database connection failed (${error.code}). Verify DB_HOST, DB_PORT, and network allowlist.`,
+      });
+    }
+
+    if (error?.code === 'ETIMEDOUT' || error?.code === 'ECONNRESET') {
+      return res.status(503).json({
+        message: `Database connection timed out (${error.code}). Check DB_HOST and DB_PORT settings.`,
+      });
+    }
+
+    if (error?.code === 'ER_ACCESS_DENIED_ERROR') {
+      return res.status(503).json({
+        message: 'Database access denied. Verify DB_USER and DB_PASSWORD on Render.',
+      });
+    }
+
+    if (error?.code === 'ER_BAD_DB_ERROR') {
+      return res.status(503).json({
+        message: 'Database not found. Verify DB_NAME is set correctly on Render.',
       });
     }
 

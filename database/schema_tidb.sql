@@ -1,6 +1,3 @@
-CREATE DATABASE IF NOT EXISTS blockvote;
-USE blockvote;
-
 CREATE TABLE IF NOT EXISTS users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   full_name VARCHAR(120) NOT NULL,
@@ -27,7 +24,7 @@ CREATE TABLE IF NOT EXISTS election_status (
 
 INSERT INTO election_status (id, status)
 VALUES (1, 'setup')
-ON DUPLICATE KEY UPDATE status = VALUES(status);
+ON DUPLICATE KEY UPDATE status = 'setup';
 
 CREATE TABLE IF NOT EXISTS vote_records (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -78,9 +75,6 @@ CREATE TABLE IF NOT EXISTS admin_access_lock (
   locked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Seed admin account
--- Email: admin@blockvote.com
--- Password: Admin@123
 INSERT INTO users (full_name, email, password_hash, role, has_voted)
 VALUES (
   'System Admin',
