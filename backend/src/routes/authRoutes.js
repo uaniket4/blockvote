@@ -232,6 +232,18 @@ router.post('/login', async (req, res) => {
       },
     });
   } catch (error) {
+    if (error?.message?.includes('insecure transport are prohibited')) {
+      return res.status(503).json({
+        message: 'Database SSL is required. Configure DB_SSL=true and DB_SSL_REJECT_UNAUTHORIZED=true on the backend.',
+      });
+    }
+
+    if (error?.code === 'ENOTFOUND' || error?.code === 'ECONNREFUSED') {
+      return res.status(503).json({
+        message: 'Database connection failed. Verify DB host, port, and network allowlist.',
+      });
+    }
+
     return res.status(500).json({ message: 'Server error during login', error: error.message });
   }
 });
