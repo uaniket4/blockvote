@@ -244,6 +244,12 @@ router.post('/login', async (req, res) => {
       });
     }
 
+    if (error?.code === 'ER_NO_SUCH_TABLE') {
+      return res.status(503).json({
+        message: 'Database schema is missing. Run database/schema.sql on the configured DB_NAME before login.',
+      });
+    }
+
     return res.status(500).json({ message: 'Server error during login', error: error.message });
   }
 });
