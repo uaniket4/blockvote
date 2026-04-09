@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "install:all": "npm install; npm --prefix backend install; npm --prefix frontend install; npm --prefix contracts install",
+    "install:all": "npm install && npm --prefix backend install && npm --prefix frontend install && npm --prefix contracts install",
     "dev": "concurrently -n BACKEND,FRONTEND -c yellow,cyan \"npm --prefix backend run dev\" \"npm --prefix frontend run dev\"",
     "dev:all": "node scripts/dev-all.cjs",
     "clean:ports": "kill-port 5000 5173 5174",

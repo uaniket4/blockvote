@@ -120,6 +120,13 @@ router.post('/register', async (req, res) => {
       return res.status(503).json({ message: error.message });
     }
 
+    if (error?.message?.includes('CompreFace request failed')) {
+      return res.status(503).json({
+        message: 'Biometric service is temporarily unavailable. Ensure CompreFace is running and retry registration.',
+        error: error.message,
+      });
+    }
+
     if (error?.message?.includes('Captured image is too small')) {
       return res.status(400).json({ message: error.message });
     }
@@ -281,6 +288,13 @@ router.post('/login/biometric-face', async (req, res) => {
   } catch (error) {
     if (error?.message?.includes('CompreFace is not configured')) {
       return res.status(503).json({ message: error.message });
+    }
+
+    if (error?.message?.includes('CompreFace request failed')) {
+      return res.status(503).json({
+        message: 'Biometric service is temporarily unavailable. Ensure CompreFace is running and retry login.',
+        error: error.message,
+      });
     }
 
     if (error?.message?.includes('Captured image is too small')) {

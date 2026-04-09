@@ -13,6 +13,40 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const workspaceRoot = path.resolve(__dirname, '../../..');
 
+const getOrCreateCampaignId = async (adminUserId) => {
+  try {
+    const [campaignRows] = await pool.query('SELECT id FROM campaigns ORDER BY id ASC LIMIT 1');
+
+    if (campaignRows.length > 0) {
+      return Number(campaignRows[0].id);
+    }
+
+    const now = new Date();
+    const sevenDaysLater = new Date(now.getTime() + (7 * 24 * 60 * 60 * 1000));
+
+    const [insertResult] = await pool.query(
+      'INSERT INTO campaigns (title, description, status, start_date, end_date, created_by) VALUES (?, ?, ?, ?, ?, ?)',
+      [
+        'Default Election Campaign',
+        'Auto-created by BlockVote admin route for candidate registration',
+        'pending',
+        now,
+        sevenDaysLater,
+        adminUserId,
+      ]
+    );
+
+    return Number(insertResult.insertId);
+  } catch (error) {
+    // campaigns table may not exist in older schema; caller should fallback to legacy insert.
+    if (error?.code === 'ER_NO_SUCH_TABLE') {
+      return null;
+    }
+
+    throw error;
+  }
+};
+
 router.use(authenticateJWT, requireAdmin);
 
 router.post('/candidates', async (req, res) => {
@@ -23,10 +57,33 @@ router.post('/candidates', async (req, res) => {
       return res.status(400).json({ message: 'Candidate name and party are required' });
     }
 
-    const [result] = await pool.query(
-      'INSERT INTO candidates (name, party) VALUES (?, ?)',
-      [name, party]
-    );
+    let result;
+
+    try {
+      const campaignId = await getOrCreateCampaignId(req.user.id);
+
+      if (campaignId) {
+        [result] = await pool.query(
+          'INSERT INTO candidates (campaign_id, name, party) VALUES (?, ?, ?)',
+          [campaignId, name, party]
+        );
+      } else {
+        [result] = await pool.query(
+          'INSERT INTO candidates (name, party) VALUES (?, ?)',
+          [name, party]
+        );
+      }
+    } catch (insertError) {
+      if (insertError?.code !== 'ER_BAD_FIELD_ERROR') {
+        throw insertError;
+      }
+
+      // Legacy schema without campaign_id column.
+      [result] = await pool.query(
+        'INSERT INTO candidates (name, party) VALUES (?, ?)',
+        [name, party]
+      );
+    }
 
     return res.status(201).json({
       message: 'Candidate added',

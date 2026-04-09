@@ -3,11 +3,11 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "compile": "hardhat compile",
-    "node": "hardhat node",
-    "deploy:local": "hardhat run scripts/deploy.js --network localhost",
-    "deploy:ganache": "hardhat run scripts/deploy.js --network ganache",
-    "deploy:sepolia": "hardhat run scripts/deploy.js --network sepolia",
+    "compile": "node scripts/run-hardhat.cjs compile",
+    "node": "node scripts/run-hardhat.cjs node",
+    "deploy:local": "node scripts/run-hardhat.cjs run scripts/deploy.js --network localhost",
+    "deploy:ganache": "node scripts/run-hardhat.cjs run scripts/deploy.js --network ganache",
+    "deploy:sepolia": "node scripts/run-hardhat.cjs run scripts/deploy.js --network sepolia",
     "test:e2e:ganache": "node scripts/e2e-ganache-test.js"
   },
   "devDependencies": {

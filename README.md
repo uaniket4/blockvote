@@ -245,3 +245,7 @@ Core functions:
   1. Cast vote on blockchain (MetaMask)
   2. Save transaction hash to backend/MySQL
 
+## Global Deployment
+
+For a full internet-facing deployment guide (Render + Vercel + managed MySQL + Sepolia), see [DEPLOY_GLOBAL.md](DEPLOY_GLOBAL.md).
+

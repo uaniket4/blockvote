@@ -26,6 +26,36 @@ const toImageBuffer = (input) => {
   return buffer;
 };
 
+const wait = (ms) => new Promise((resolve) => {
+  setTimeout(resolve, ms);
+});
+
+const postWithRetry = async (url, apiKey, form, attempts = 3) => {
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+        },
+        body: form,
+      });
+
+      return response;
+    } catch (error) {
+      lastError = error;
+
+      if (attempt < attempts) {
+        await wait(600 * attempt);
+      }
+    }
+  }
+
+  throw new Error(`CompreFace request failed: ${lastError?.message || 'network error'}`);
+};
+
 const recognize = async (faceImage) => {
   const { baseUrl, apiKey } = getConfig();
   const imageBuffer = toImageBuffer(faceImage);
@@ -34,13 +64,7 @@ const recognize = async (faceImage) => {
   form.append('file', new Blob([imageBuffer], { type: 'image/jpeg' }), 'face.jpg');
   form.append('limit', '3');
 
-  const response = await fetch(`${baseUrl}/api/v1/recognition/recognize`, {
-    method: 'POST',
-    headers: {
-      'x-api-key': apiKey,
-    },
-    body: form,
-  });
+  const response = await postWithRetry(`${baseUrl}/api/v1/recognition/recognize`, apiKey, form);
 
   if (!response.ok) {
     const text = await response.text();
@@ -78,13 +102,7 @@ export const enrollSubjectFace = async (subject, faceImage) => {
   form.append('file', new Blob([imageBuffer], { type: 'image/jpeg' }), 'face.jpg');
   form.append('subject', subject);
 
-  const response = await fetch(`${baseUrl}/api/v1/recognition/faces`, {
-    method: 'POST',
-    headers: {
-      'x-api-key': apiKey,
-    },
-    body: form,
-  });
+  const response = await postWithRetry(`${baseUrl}/api/v1/recognition/faces`, apiKey, form);
 
   if (!response.ok) {
     const text = await response.text();
