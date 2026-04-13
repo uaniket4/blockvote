@@ -258,3 +258,5 @@ Core functions:
 
 For a full internet-facing deployment guide (Render + Vercel + managed MySQL + Sepolia), see [DEPLOY_GLOBAL.md](DEPLOY_GLOBAL.md).
 
+For a no-card Hugging Face Spaces biometric deployment path, see [DEPLOY_COMPREFACE_HF_SPACES.md](DEPLOY_COMPREFACE_HF_SPACES.md).
+
