@@ -4,6 +4,8 @@ import dotenv from 'dotenv';
 import authRoutes from './routes/authRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import voterRoutes from './routes/voterRoutes.js';
+import { pool } from './config/db.js';
+import { getCurrentContractAddress } from './utils/contractAddressStore.js';
 
 dotenv.config();
 
@@ -43,6 +45,16 @@ app.get('/api/health', (_req, res) => {
   res.json({ message: 'BlockVote API is running' });
 });
 
+app.get('/api/config/contract-address', (_req, res) => {
+  const contractAddress = getCurrentContractAddress();
+
+  if (!contractAddress) {
+    return res.status(404).json({ message: 'Contract address not available yet' });
+  }
+
+  return res.json({ contractAddress });
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/voter', voterRoutes);
@@ -50,6 +62,23 @@ app.use('/api/voter', voterRoutes);
 const PORT = process.env.PORT || 5000;
 const HOST = process.env.HOST || '0.0.0.0';
 
-app.listen(PORT, HOST, () => {
+app.listen(PORT, HOST, async () => {
   console.log(`Server running on ${HOST}:${PORT}`);
+  const runtimeContractAddress = getCurrentContractAddress();
+  if (runtimeContractAddress) {
+    console.log(`[CHAIN] Active contract address: ${runtimeContractAddress}`);
+  } else {
+    console.log('[CHAIN] Active contract address not set yet.');
+  }
+
+  // Test DB connection on startup so errors surface immediately in deploy logs.
+  try {
+    const conn = await pool.getConnection();
+    await conn.ping();
+    conn.release();
+    console.log('[DB] Connected to database successfully.');
+  } catch (err) {
+    console.error('[DB] ❌ Database connection FAILED on startup:', err.code, err.message);
+    console.error('[DB] Check DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME, DB_SSL on Render.');
+  }
 });

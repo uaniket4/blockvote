@@ -1,4 +1,5 @@
 import { BrowserProvider, Contract, JsonRpcProvider, Wallet } from 'ethers';
+import api from './api';
 
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS;
 const GANACHE_RPC_URL = import.meta.env.VITE_GANACHE_RPC_URL || 'http://127.0.0.1:7545';
@@ -45,6 +46,22 @@ export const getActiveContractAddress = () => {
   }
 
   return CONTRACT_ADDRESS;
+};
+
+export const syncRuntimeContractAddress = async () => {
+  try {
+    const { data } = await api.get('/config/contract-address');
+    const address = data?.contractAddress;
+
+    if (address) {
+      setRuntimeContractAddress(address);
+      return address;
+    }
+  } catch (_error) {
+    // Ignore temporary API issues and fallback to existing local/runtime address.
+  }
+
+  return getActiveContractAddress();
 };
 
 export const connectWallet = async () => {
@@ -116,10 +133,10 @@ export const getWalletConnectionStatus = async () => {
 };
 
 export const getVotingContract = async () => {
-  const activeAddress = getActiveContractAddress();
+  const activeAddress = await syncRuntimeContractAddress();
 
   if (!activeAddress) {
-    throw new Error('Contract address missing. Set VITE_CONTRACT_ADDRESS in frontend/.env');
+    throw new Error('Contract address missing. Deploy a new cycle so backend publishes the latest address.');
   }
 
   const { signer } = await connectWallet();

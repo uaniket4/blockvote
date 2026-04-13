@@ -37,6 +37,15 @@ function upsertEnvValue(filePath, key, value) {
   fs.writeFileSync(filePath, content, 'utf8');
 }
 
+function writeRuntimeContractAddress(filePath, address) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(
+    filePath,
+    JSON.stringify({ contractAddress: address, updatedAt: new Date().toISOString() }, null, 2),
+    'utf8'
+  );
+}
+
 async function main() {
   let signer;
 
@@ -46,6 +55,14 @@ async function main() {
     const ganachePk = normalizePrivateKey(process.env.GANACHE_PRIVATE_KEY);
 
     signer = ganachePk ? new ethers.Wallet(ganachePk, provider) : await provider.getSigner(0);
+  } else {
+    // For sepolia / localhost — use the account configured in hardhat.config.js
+    const signers = await hre.ethers.getSigners();
+    if (!signers || signers.length === 0) {
+      throw new Error('No signers available. Make sure PRIVATE_KEY is set correctly in contracts/.env');
+    }
+    signer = signers[0];
+    console.log('Deploying with account:', await signer.getAddress());
   }
 
   const Voting = await hre.ethers.getContractFactory('Voting', signer);
@@ -56,8 +73,13 @@ async function main() {
   console.log('Voting contract deployed to:', address);
 
   const frontendEnvPath = path.resolve(__dirname, '../../frontend/.env');
+  const backendRuntimePath = path.resolve(__dirname, '../../backend/runtime/contract-address.json');
+
   upsertEnvValue(frontendEnvPath, 'VITE_CONTRACT_ADDRESS', address);
+  writeRuntimeContractAddress(backendRuntimePath, address);
+
   console.log('Updated frontend env at:', frontendEnvPath);
+  console.log('Updated backend runtime contract file at:', backendRuntimePath);
 }
 
 main().catch((error) => {
