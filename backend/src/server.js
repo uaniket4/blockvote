@@ -5,7 +5,7 @@ import authRoutes from './routes/authRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import voterRoutes from './routes/voterRoutes.js';
 import { pool } from './config/db.js';
-import { getCurrentContractAddress } from './utils/contractAddressStore.js';
+import { ensureContractAddressAvailable, getCurrentContractAddress } from './utils/contractAddressStore.js';
 
 dotenv.config();
 
@@ -46,7 +46,7 @@ app.get('/api/health', (_req, res) => {
 });
 
 app.get('/api/config/contract-address', async (_req, res) => {
-  const contractAddress = await getCurrentContractAddress();
+  const contractAddress = await ensureContractAddressAvailable();
 
   if (!contractAddress) {
     return res.status(404).json({ message: 'Contract address not available yet' });

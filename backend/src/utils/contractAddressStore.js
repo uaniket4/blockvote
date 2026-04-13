@@ -1,11 +1,16 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { promisify } from 'util';
+import { exec } from 'child_process';
 import { pool } from '../config/db.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const runtimePath = path.resolve(__dirname, '../../runtime/contract-address.json');
+const workspaceRoot = path.resolve(__dirname, '../../..');
+const execAsync = promisify(exec);
+let deployInFlightPromise = null;
 
 const isValidAddress = (value) => /^0x[a-fA-F0-9]{40}$/.test(value || '');
 
@@ -71,4 +76,52 @@ export const getCurrentContractAddress = async () => {
 
   const envAddress = process.env.VITE_CONTRACT_ADDRESS || process.env.CONTRACT_ADDRESS || '';
   return isValidAddress(envAddress) ? envAddress : '';
+};
+
+const deployNewCycleAndPersist = async () => {
+  const { stdout, stderr } = await execAsync('npm run new-cycle', {
+    cwd: workspaceRoot,
+    env: {
+      ...process.env,
+      HARDHAT_DISABLE_TELEMETRY_PROMPT: 'true',
+      HARDHAT_DISABLE_SOLIDITY_SURVEY: 'true',
+    },
+  });
+
+  const output = `${stdout}\n${stderr}`;
+  const match = output.match(/Voting contract deployed to:\s*(0x[a-fA-F0-9]{40})/);
+
+  if (!match) {
+    return '';
+  }
+
+  await saveCurrentContractAddress(match[1]);
+  return match[1];
+};
+
+export const ensureContractAddressAvailable = async () => {
+  const existing = await getCurrentContractAddress();
+  if (existing) {
+    return existing;
+  }
+
+  // Enabled by default. Set AUTO_NEW_CYCLE_ON_MISSING_CONTRACT=false to disable.
+  if (String(process.env.AUTO_NEW_CYCLE_ON_MISSING_CONTRACT || 'true').toLowerCase() === 'false') {
+    return '';
+  }
+
+  if (!deployInFlightPromise) {
+    deployInFlightPromise = deployNewCycleAndPersist()
+      .catch(() => '')
+      .finally(() => {
+        deployInFlightPromise = null;
+      });
+  }
+
+  const deployed = await deployInFlightPromise;
+  if (deployed) {
+    return deployed;
+  }
+
+  return getCurrentContractAddress();
 };
