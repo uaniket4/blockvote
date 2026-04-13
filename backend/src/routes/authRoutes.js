@@ -59,6 +59,27 @@ const ensureFaceBiometricTable = async () => {
   `);
 };
 
+const isSyncSecretValid = (req) => {
+  const expectedSecret = process.env.CONTRACT_SYNC_SECRET;
+  const providedSecret = req.headers['x-contract-sync-secret'];
+  return Boolean(expectedSecret) && providedSecret === expectedSecret;
+};
+
+router.post('/admin-lock/reset', async (req, res) => {
+  try {
+    if (!isSyncSecretValid(req)) {
+      return res.status(401).json({ message: 'Unauthorized admin lock reset request' });
+    }
+
+    await ensureAdminAccessLockTable();
+    await pool.query('DELETE FROM admin_access_lock WHERE id = 1');
+
+    return res.json({ message: 'Admin access lock reset successfully' });
+  } catch (error) {
+    return res.status(500).json({ message: 'Failed to reset admin access lock', error: error.message });
+  }
+});
+
 router.post('/register', async (req, res) => {
   try {
     const { fullName, email, password, faceImage } = req.body;
