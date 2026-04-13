@@ -204,9 +204,19 @@ router.post('/login', async (req, res) => {
         const allowedIp = lockRows[0].allowed_ip;
         const allowedUserAgent = lockRows[0].allowed_user_agent;
         const allowedPublicIp = lockRows[0].allowed_public_ip;
+        const isSameDevice = allowedUserAgent === clientUserAgent;
+        const hasIpMatch = allowedIp === clientIp || allowedPublicIp === clientPublicIp;
 
-        if (allowedIp !== clientIp || allowedUserAgent !== clientUserAgent || allowedPublicIp !== clientPublicIp) {
+        if (!isSameDevice || !hasIpMatch) {
           return res.status(403).json({ message: 'Admin login is restricted to the authorized IP/device only' });
+        }
+
+        // Keep lock in sync when request IP representation changes but device is the same.
+        if (allowedIp !== clientIp || allowedPublicIp !== clientPublicIp) {
+          await pool.query(
+            'UPDATE admin_access_lock SET allowed_ip = ?, allowed_public_ip = ?, locked_at = CURRENT_TIMESTAMP WHERE id = 1',
+            [clientIp, clientPublicIp]
+          );
         }
       }
     }
