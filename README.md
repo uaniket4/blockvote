@@ -67,6 +67,10 @@ Use the root project commands to avoid switching folders repeatedly.
    - Set `CONTRACT_SYNC_SECRET` to a shared secret
    - Set same `CONTRACT_SYNC_SECRET` in backend environment (Render)
    - After each `npm run new-cycle`, the new contract address is pushed to deployed backend automatically
+   No-repeat setup option:
+   - Copy `.env.sync.example` to `.env.sync`
+   - Fill `CONTRACT_SYNC_BACKEND_URL` and `CONTRACT_SYNC_SECRET` once
+   - Use `npm run new-cycle:cloud` for future cycles (no manual env export needed)
 6. Run Ganache end-to-end test:
    ```bash
    npm run contracts:test:e2e:ganache

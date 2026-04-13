@@ -11,6 +11,7 @@
     "backend": "npm --prefix backend run dev",
     "frontend": "npm --prefix frontend run dev",
     "new-cycle": "node scripts/new-cycle.cjs",
+    "new-cycle:cloud": "node scripts/new-cycle-cloud.cjs",
     "contracts:compile": "npm --prefix contracts run compile",
     "contracts:deploy:ganache": "npm --prefix contracts run deploy:ganache",
     "contracts:deploy:local": "npm --prefix contracts run deploy:local",
