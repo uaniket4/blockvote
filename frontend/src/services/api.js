@@ -6,6 +6,15 @@ const api = axios.create({
   baseURL: API_BASE_URL,
 });
 
+const clearAuthAndRedirect = () => {
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+
+  if (window.location.pathname !== '/login') {
+    window.location.href = '/login';
+  }
+};
+
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   const publicIp = localStorage.getItem('clientPublicIp');
@@ -21,5 +30,22 @@ api.interceptors.request.use((config) => {
 
   return config;
 });
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error?.response?.status;
+    const message = error?.response?.data?.message || '';
+
+    if (
+      status === 401
+      && (message === 'Invalid or expired token' || message === 'Access token missing')
+    ) {
+      clearAuthAndRedirect();
+    }
+
+    return Promise.reject(error);
+  }
+);
 
 export default api;
