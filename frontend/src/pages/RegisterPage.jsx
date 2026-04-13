@@ -65,8 +65,13 @@ const RegisterPage = () => {
       return;
     }
 
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    const maxWidth = 480;
+    const sourceWidth = video.videoWidth;
+    const sourceHeight = video.videoHeight;
+    const scale = sourceWidth > maxWidth ? maxWidth / sourceWidth : 1;
+
+    canvas.width = Math.max(1, Math.round(sourceWidth * scale));
+    canvas.height = Math.max(1, Math.round(sourceHeight * scale));
 
     const context = canvas.getContext('2d');
     if (!context) {
@@ -75,7 +80,7 @@ const RegisterPage = () => {
     }
 
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const imageData = canvas.toDataURL('image/jpeg', 0.92);
+    const imageData = canvas.toDataURL('image/jpeg', 0.75);
     if (!imageData) {
       setCameraError('Failed to capture face image.');
       setFaceImage('');
