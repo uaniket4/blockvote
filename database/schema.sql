@@ -78,6 +78,12 @@ CREATE TABLE IF NOT EXISTS admin_access_lock (
   locked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS contract_config (
+  id INT PRIMARY KEY,
+  contract_address VARCHAR(42) NOT NULL,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
 -- Seed admin account
 -- Email: admin@blockvote.com
 -- Password: Admin@123

@@ -45,8 +45,8 @@ app.get('/api/health', (_req, res) => {
   res.json({ message: 'BlockVote API is running' });
 });
 
-app.get('/api/config/contract-address', (_req, res) => {
-  const contractAddress = getCurrentContractAddress();
+app.get('/api/config/contract-address', async (_req, res) => {
+  const contractAddress = await getCurrentContractAddress();
 
   if (!contractAddress) {
     return res.status(404).json({ message: 'Contract address not available yet' });
@@ -64,7 +64,7 @@ const HOST = process.env.HOST || '0.0.0.0';
 
 app.listen(PORT, HOST, async () => {
   console.log(`Server running on ${HOST}:${PORT}`);
-  const runtimeContractAddress = getCurrentContractAddress();
+  const runtimeContractAddress = await getCurrentContractAddress();
   if (runtimeContractAddress) {
     console.log(`[CHAIN] Active contract address: ${runtimeContractAddress}`);
   } else {

@@ -6,6 +6,7 @@ import { promisify } from 'util';
 import { pool } from '../config/db.js';
 import { authenticateJWT } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/admin.js';
+import { saveCurrentContractAddress } from '../utils/contractAddressStore.js';
 
 const router = express.Router();
 const execAsync = promisify(exec);
@@ -179,6 +180,8 @@ router.post('/election/new-cycle', async (_req, res) => {
         message: 'New cycle deployed but contract address could not be parsed',
       });
     }
+
+    await saveCurrentContractAddress(match[1]);
 
     return res.json({
       message: 'New cycle contract deployed',
