@@ -1,6 +1,7 @@
 import express from 'express';
 import { pool } from '../config/db.js';
 import { authenticateJWT } from '../middleware/auth.js';
+import { ensureCoreVotingTables } from '../utils/schemaBootstrap.js';
 
 const router = express.Router();
 
@@ -8,6 +9,7 @@ router.use(authenticateJWT);
 
 router.get('/candidates', async (_req, res) => {
   try {
+    await ensureCoreVotingTables();
     const [candidates] = await pool.query(
       'SELECT id, name, party, is_active FROM candidates WHERE is_active = 1 ORDER BY id ASC'
     );
@@ -19,6 +21,7 @@ router.get('/candidates', async (_req, res) => {
 
 router.get('/election-status', async (_req, res) => {
   try {
+    await ensureCoreVotingTables();
     const [rows] = await pool.query('SELECT status FROM election_status WHERE id = 1');
     return res.json({ status: rows[0]?.status || 'setup' });
   } catch (error) {

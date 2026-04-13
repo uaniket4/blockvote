@@ -10,6 +10,7 @@ import {
   getCurrentContractAddress,
   saveCurrentContractAddress,
 } from './utils/contractAddressStore.js';
+import { ensureCoreVotingTables } from './utils/schemaBootstrap.js';
 
 dotenv.config();
 
@@ -98,6 +99,9 @@ app.listen(PORT, HOST, async () => {
     await conn.ping();
     conn.release();
     console.log('[DB] Connected to database successfully.');
+
+    await ensureCoreVotingTables();
+    console.log('[DB] Core voting tables are ready.');
   } catch (err) {
     console.error('[DB] ❌ Database connection FAILED on startup:', err.code, err.message);
     console.error('[DB] Check DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME, DB_SSL on Render.');

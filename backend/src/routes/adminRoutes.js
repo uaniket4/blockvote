@@ -7,6 +7,7 @@ import { pool } from '../config/db.js';
 import { authenticateJWT } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/admin.js';
 import { saveCurrentContractAddress } from '../utils/contractAddressStore.js';
+import { ensureCoreVotingTables } from '../utils/schemaBootstrap.js';
 
 const router = express.Router();
 const execAsync = promisify(exec);
@@ -52,6 +53,7 @@ router.use(authenticateJWT, requireAdmin);
 
 router.post('/candidates', async (req, res) => {
   try {
+    await ensureCoreVotingTables();
     const { name, party } = req.body;
 
     if (!name || !party) {
@@ -129,6 +131,7 @@ router.delete('/candidates/:id', async (req, res) => {
 
 router.put('/election/start', async (_req, res) => {
   try {
+    await ensureCoreVotingTables();
     const conn = await pool.getConnection();
 
     try {
@@ -154,6 +157,7 @@ router.put('/election/start', async (_req, res) => {
 
 router.put('/election/end', async (_req, res) => {
   try {
+    await ensureCoreVotingTables();
     await pool.query('UPDATE election_status SET status = ? WHERE id = 1', ['ended']);
     return res.json({ message: 'Election ended' });
   } catch (error) {
