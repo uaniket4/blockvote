@@ -5,7 +5,11 @@ import authRoutes from './routes/authRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import voterRoutes from './routes/voterRoutes.js';
 import { pool } from './config/db.js';
-import { ensureContractAddressAvailable, getCurrentContractAddress } from './utils/contractAddressStore.js';
+import {
+  ensureContractAddressAvailable,
+  getCurrentContractAddress,
+  saveCurrentContractAddress,
+} from './utils/contractAddressStore.js';
 
 dotenv.config();
 
@@ -53,6 +57,23 @@ app.get('/api/config/contract-address', async (_req, res) => {
   }
 
   return res.json({ contractAddress });
+});
+
+app.post('/api/config/contract-address/sync', async (req, res) => {
+  const expectedSecret = process.env.CONTRACT_SYNC_SECRET;
+  const providedSecret = req.headers['x-contract-sync-secret'];
+
+  if (!expectedSecret || providedSecret !== expectedSecret) {
+    return res.status(401).json({ message: 'Unauthorized contract sync request' });
+  }
+
+  const contractAddress = req.body?.contractAddress;
+  if (!/^0x[a-fA-F0-9]{40}$/.test(contractAddress || '')) {
+    return res.status(400).json({ message: 'Valid contractAddress is required' });
+  }
+
+  await saveCurrentContractAddress(contractAddress);
+  return res.json({ message: 'Contract address synced', contractAddress });
 });
 
 app.use('/api/auth', authRoutes);

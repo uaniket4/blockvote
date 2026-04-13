@@ -62,6 +62,11 @@ Use the root project commands to avoid switching folders repeatedly.
    ```bash
    npm run new-cycle
    ```
+   Optional cloud sync:
+   - Set `CONTRACT_SYNC_BACKEND_URL` to your deployed backend base URL (for example `https://blockvote-sw2r.onrender.com`)
+   - Set `CONTRACT_SYNC_SECRET` to a shared secret
+   - Set same `CONTRACT_SYNC_SECRET` in backend environment (Render)
+   - After each `npm run new-cycle`, the new contract address is pushed to deployed backend automatically
 6. Run Ganache end-to-end test:
    ```bash
    npm run contracts:test:e2e:ganache
