@@ -40,3 +40,8 @@ export const getClientPublicIp = (req) => {
   const value = req.headers['x-client-public-ip'];
   return normalizeIp(typeof value === 'string' ? value : '');
 };
+
+export const getClientDeviceId = (req) => {
+  const value = req.headers['x-client-device-id'];
+  return typeof value === 'string' ? value.trim() : '';
+};

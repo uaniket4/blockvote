@@ -14,6 +14,19 @@ import { ensureCoreVotingTables } from './utils/schemaBootstrap.js';
 
 dotenv.config();
 
+const maskValue = (value, keep = 3) => {
+  const text = String(value || '');
+  if (!text) {
+    return '';
+  }
+
+  if (text.length <= keep) {
+    return '*'.repeat(text.length);
+  }
+
+  return `${text.slice(0, keep)}${'*'.repeat(Math.max(0, text.length - keep))}`;
+};
+
 const app = express();
 const allowedOrigins = (process.env.CORS_ORIGIN || '')
   .split(',')
@@ -49,6 +62,44 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 app.get('/api/health', (_req, res) => {
   res.json({ message: 'BlockVote API is running' });
+});
+
+app.get('/api/debug/db-target', async (req, res) => {
+  const expectedSecret = process.env.DEBUG_DB_INSPECT_SECRET;
+  const providedSecret = req.headers['x-debug-secret'];
+
+  if (!expectedSecret || providedSecret !== expectedSecret) {
+    return res.status(401).json({ message: 'Unauthorized debug request' });
+  }
+
+  try {
+    const [usersCountRows] = await pool.query('SELECT COUNT(*) AS count FROM users');
+    const [recentUsers] = await pool.query(
+      'SELECT id, email, role FROM users ORDER BY id DESC LIMIT 5'
+    );
+
+    return res.json({
+      db: {
+        hostMasked: maskValue(process.env.DB_HOST, 4),
+        port: Number(process.env.DB_PORT || 3306),
+        userMasked: maskValue(process.env.DB_USER, 2),
+        name: process.env.DB_NAME || '',
+        sslEnabled: process.env.DB_SSL === 'true',
+      },
+      users: {
+        total: Number(usersCountRows?.[0]?.count || 0),
+        lastFive: Array.isArray(recentUsers)
+          ? recentUsers.map((item) => ({
+              id: item.id,
+              emailMasked: maskValue(item.email, 3),
+              role: item.role,
+            }))
+          : [],
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ message: 'Debug inspection failed', error: error.message });
+  }
 });
 
 app.get('/api/config/contract-address', async (_req, res) => {

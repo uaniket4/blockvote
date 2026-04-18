@@ -2,6 +2,23 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 
+const DEVICE_ID_KEY = 'blockvote_admin_device_id';
+
+const getOrCreateDeviceId = () => {
+  const existing = localStorage.getItem(DEVICE_ID_KEY);
+  if (existing) {
+    return existing;
+  }
+
+  const fallback = `device_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+  const generated = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : fallback;
+
+  localStorage.setItem(DEVICE_ID_KEY, generated);
+  return generated;
+};
+
 const fetchPublicIp = async () => {
   try {
     const response = await fetch('https://api.ipify.org?format=json');
@@ -132,6 +149,12 @@ const LoginPage = () => {
     setLoading(true);
 
     try {
+      const normalizedEmail = form.email.trim().toLowerCase();
+
+      if (!normalizedEmail) {
+        throw new Error('Email is required');
+      }
+
       const publicIp = await fetchPublicIp();
 
       if (publicIp) {
@@ -143,9 +166,14 @@ const LoginPage = () => {
       let data;
 
       if (mode === 'admin') {
-        const response = await api.post('/auth/login', form, {
+        const deviceId = getOrCreateDeviceId();
+        const response = await api.post('/auth/login', {
+          ...form,
+          email: normalizedEmail,
+        }, {
           headers: {
             ...(publicIp ? { 'x-client-public-ip': publicIp } : {}),
+            'x-client-device-id': deviceId,
           },
         });
         data = response.data;
@@ -160,7 +188,7 @@ const LoginPage = () => {
         }
 
         const response = await api.post('/auth/login/biometric-face', {
-          email: form.email,
+          email: normalizedEmail,
           faceImage,
         });
         data = response.data;

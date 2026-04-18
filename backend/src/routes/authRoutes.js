@@ -2,7 +2,12 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { pool } from '../config/db.js';
-import { getClientIp, getClientPublicIp, getClientUserAgent } from '../utils/requestClient.js';
+import {
+  getClientIp,
+  getClientPublicIp,
+  getClientUserAgent,
+  getClientDeviceId,
+} from '../utils/requestClient.js';
 import {
   ensureRecognizerReady,
   findBestMatch,
@@ -13,6 +18,8 @@ import {
 
 const router = express.Router();
 
+const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
+
 const generateToken = (user) => {
   const payload = { id: user.id, email: user.email, role: user.role };
 
@@ -20,6 +27,7 @@ const generateToken = (user) => {
     payload.adminIp = user.adminIp || '';
     payload.adminUa = user.adminUa || '';
     payload.adminPublicIp = user.adminPublicIp || '';
+    payload.adminDeviceId = user.adminDeviceId || '';
   }
 
   return jwt.sign(payload, process.env.JWT_SECRET, {
@@ -33,10 +41,19 @@ const ensureAdminAccessLockTable = async () => {
       id INT PRIMARY KEY,
       allowed_ip VARCHAR(64) NOT NULL,
       allowed_user_agent VARCHAR(300) NOT NULL,
+      allowed_device_id VARCHAR(128) NOT NULL DEFAULT '',
       allowed_public_ip VARCHAR(64) NOT NULL DEFAULT '',
       locked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  try {
+    await pool.query("ALTER TABLE admin_access_lock ADD COLUMN allowed_device_id VARCHAR(128) NOT NULL DEFAULT ''");
+  } catch (error) {
+    if (error?.code !== 'ER_DUP_FIELDNAME') {
+      throw error;
+    }
+  }
 
   try {
     await pool.query("ALTER TABLE admin_access_lock ADD COLUMN allowed_public_ip VARCHAR(64) NOT NULL DEFAULT ''");
@@ -83,12 +100,13 @@ router.post('/admin-lock/reset', async (req, res) => {
 router.post('/register', async (req, res) => {
   try {
     const { fullName, email, password, faceImage } = req.body;
+    const normalizedEmail = normalizeEmail(email);
 
-    if (!fullName || !email || !password || !faceImage) {
+    if (!fullName || !normalizedEmail || !password || !faceImage) {
       return res.status(400).json({ message: 'fullName, email, password and faceImage are required' });
     }
 
-    const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
+    const [existing] = await pool.query('SELECT id FROM users WHERE LOWER(TRIM(email)) = ? LIMIT 1', [normalizedEmail]);
     if (existing.length > 0) {
       return res.status(409).json({ message: 'Email already registered' });
     }
@@ -112,7 +130,7 @@ router.post('/register', async (req, res) => {
 
       const [result] = await conn.query(
         'INSERT INTO users (full_name, email, password_hash, role) VALUES (?, ?, ?, ?)',
-        [fullName, email, hashedPassword, 'voter']
+        [fullName, normalizedEmail, hashedPassword, 'voter']
       );
       createdUserId = result.insertId;
 
@@ -166,12 +184,13 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
+    const normalizedEmail = normalizeEmail(email);
 
-    if (!email || !password) {
+    if (!normalizedEmail || !password) {
       return res.status(400).json({ message: 'Email and password are required' });
     }
 
-    const [rows] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
+    const [rows] = await pool.query('SELECT * FROM users WHERE LOWER(TRIM(email)) = ? LIMIT 1', [normalizedEmail]);
     if (rows.length === 0) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
@@ -189,6 +208,7 @@ router.post('/login', async (req, res) => {
     const clientIp = getClientIp(req);
     const clientUserAgent = getClientUserAgent(req);
     const clientPublicIp = getClientPublicIp(req);
+    const clientDeviceId = getClientDeviceId(req);
 
     if (user.role === 'admin') {
       if (!clientPublicIp) {
@@ -201,7 +221,7 @@ router.post('/login', async (req, res) => {
 
       try {
         const [lock] = await pool.query(
-          'SELECT allowed_ip, allowed_user_agent, allowed_public_ip FROM admin_access_lock WHERE id = 1'
+          'SELECT allowed_ip, allowed_user_agent, allowed_device_id, allowed_public_ip FROM admin_access_lock WHERE id = 1'
         );
         lockRows = lock;
       } catch (tableError) {
@@ -211,32 +231,34 @@ router.post('/login', async (req, res) => {
 
         await ensureAdminAccessLockTable();
         const [lock] = await pool.query(
-          'SELECT allowed_ip, allowed_user_agent, allowed_public_ip FROM admin_access_lock WHERE id = 1'
+          'SELECT allowed_ip, allowed_user_agent, allowed_device_id, allowed_public_ip FROM admin_access_lock WHERE id = 1'
         );
         lockRows = lock;
       }
 
       if (lockRows.length === 0) {
         await pool.query(
-          'INSERT INTO admin_access_lock (id, allowed_ip, allowed_user_agent, allowed_public_ip) VALUES (1, ?, ?, ?)',
-          [clientIp, clientUserAgent, clientPublicIp]
+          'INSERT INTO admin_access_lock (id, allowed_ip, allowed_user_agent, allowed_device_id, allowed_public_ip) VALUES (1, ?, ?, ?, ?)',
+          [clientIp, clientUserAgent, clientDeviceId, clientPublicIp]
         );
       } else {
         const allowedIp = lockRows[0].allowed_ip;
         const allowedUserAgent = lockRows[0].allowed_user_agent;
+        const allowedDeviceId = lockRows[0].allowed_device_id || '';
         const allowedPublicIp = lockRows[0].allowed_public_ip;
-        const isSameDevice = allowedUserAgent === clientUserAgent;
+        const hasDeviceIdMatch = Boolean(allowedDeviceId) && Boolean(clientDeviceId) && allowedDeviceId === clientDeviceId;
+        const isSameDevice = hasDeviceIdMatch || allowedUserAgent === clientUserAgent;
         const hasIpMatch = allowedIp === clientIp || allowedPublicIp === clientPublicIp;
 
-        if (!isSameDevice || !hasIpMatch) {
+        if (!isSameDevice || (!hasIpMatch && !hasDeviceIdMatch)) {
           return res.status(403).json({ message: 'Admin login is restricted to the authorized IP/device only' });
         }
 
-        // Keep lock in sync when request IP representation changes but device is the same.
-        if (allowedIp !== clientIp || allowedPublicIp !== clientPublicIp) {
+        // Keep lock in sync when request IP/device representation changes but login is still authorized.
+        if (allowedIp !== clientIp || allowedPublicIp !== clientPublicIp || allowedDeviceId !== clientDeviceId) {
           await pool.query(
-            'UPDATE admin_access_lock SET allowed_ip = ?, allowed_public_ip = ?, locked_at = CURRENT_TIMESTAMP WHERE id = 1',
-            [clientIp, clientPublicIp]
+            'UPDATE admin_access_lock SET allowed_ip = ?, allowed_public_ip = ?, allowed_device_id = ?, locked_at = CURRENT_TIMESTAMP WHERE id = 1',
+            [clientIp, clientPublicIp, clientDeviceId]
           );
         }
       }
@@ -247,6 +269,7 @@ router.post('/login', async (req, res) => {
       adminIp: clientIp,
       adminUa: clientUserAgent,
       adminPublicIp: clientPublicIp,
+      adminDeviceId: clientDeviceId,
     };
 
     const token = generateToken(tokenPayload);
@@ -309,14 +332,15 @@ router.post('/login', async (req, res) => {
 router.post('/login/biometric-face', async (req, res) => {
   try {
     const { email, faceImage } = req.body;
+    const normalizedEmail = normalizeEmail(email);
 
-    if (!email || !faceImage) {
+    if (!normalizedEmail || !faceImage) {
       return res.status(400).json({ message: 'email and faceImage are required' });
     }
 
     await ensureFaceBiometricTable();
 
-    const [rows] = await pool.query('SELECT * FROM users WHERE email = ? LIMIT 1', [email]);
+    const [rows] = await pool.query('SELECT * FROM users WHERE LOWER(TRIM(email)) = ? LIMIT 1', [normalizedEmail]);
     if (rows.length === 0) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }

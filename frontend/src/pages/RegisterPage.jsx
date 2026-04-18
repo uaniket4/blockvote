@@ -106,6 +106,14 @@ const RegisterPage = () => {
     setLoading(true);
 
     try {
+      const normalizedEmail = form.email.trim().toLowerCase();
+
+      if (!normalizedEmail) {
+        setError('Email is required');
+        setLoading(false);
+        return;
+      }
+
       if (!faceImage) {
         setError('Capture your face from the live camera before registering.');
         setLoading(false);
@@ -121,6 +129,7 @@ const RegisterPage = () => {
 
       await api.post('/auth/register', {
         ...form,
+        email: normalizedEmail,
         faceImage,
       });
 
