@@ -118,9 +118,26 @@ router.post('/register', async (req, res) => {
 
     const similarCandidate = await findBestMatch(faceImage);
     if (similarCandidate && similarCandidate.similarity >= getSimilarityThreshold()) {
-      return res.status(409).json({
-        message: 'A similar biometric identity already exists. Account creation denied.',
-      });
+      const [biometricRows] = await pool.query(
+        `SELECT fb.user_id, u.id AS linked_user_id
+         FROM face_biometrics fb
+         LEFT JOIN users u ON u.id = fb.user_id
+         WHERE fb.persisted_face_id = ?
+         LIMIT 1`,
+        [similarCandidate.subject]
+      );
+
+      // Reject only when the matched subject is linked to an existing user.
+      if (biometricRows.length > 0 && biometricRows[0].linked_user_id) {
+        return res.status(409).json({
+          message: 'A similar biometric identity already exists. Account creation denied.',
+        });
+      }
+
+      // Legacy/stale rows can survive if FK was missing in older schema versions.
+      if (biometricRows.length > 0 && !biometricRows[0].linked_user_id) {
+        await pool.query('DELETE FROM face_biometrics WHERE persisted_face_id = ?', [similarCandidate.subject]);
+      }
     }
 
     let createdUserId = null;
